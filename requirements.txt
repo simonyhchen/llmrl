@@ -1,32 +1,22 @@
-# Core dependencies from AutoCkt environment.yml (pip section)
-absl-py==0.8.0
-astor==0.8.0
-atomicwrites==1.3.0
-attrs==19.1.0
-chardet==3.0.4
-click==7.0
-colorama==0.4.1
-filelock==3.0.12
-flatbuffers==1.11
-funcsigs==1.0.2
-future==0.17.1
-grpcio==1.24.0
-gym==0.10.5
-idna==2.8
-importlib-metadata==0.23
-# Add more from conda if needed, but focus on pip
+# Python 3.11+ dependencies for LLMRL pipeline
 
-# Ray for RL
-ray[rllib]==0.6.3
+# RL stack (modern)
+ray[rllib]>=2.9,<3.0
+torch>=2.1
+numpy>=1.24
+scipy>=1.10
+matplotlib>=3.7
 
-# New dependencies for LLM integration
-huggingface_hub>=0.20.0  # For Hugging Face API
-ollama>=0.2.0            # For local Ollama models
-openai>=1.0.0            # For OpenAI API (future)
-anthropic>=0.20.0        # For Claude API (future)
+# AutoCkt runtime helpers
+gym==0.26.2
+pyyaml>=6.0
+psutil>=5.9
 
-# Additional utilities
-numpy
-matplotlib
-scipy
-tensorflow==1.10.0  # As per environment.yml
+# Free LLM API + optional local model
+huggingface_hub>=0.20
+requests>=2.31
+ollama>=0.2
+
+# Future paid providers (optional)
+openai>=1.0
+anthropic>=0.20

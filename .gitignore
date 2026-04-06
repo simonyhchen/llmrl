@@ -19,3 +19,12 @@ Thumbs.db
 
 # Exclude autockt/ as it's cloned externally
 autockt/
+
+# Comparison results (charts, reports) - generated locally
+comparison_results/
+
+# Experiment outputs (metrics/checkpoints)
+experiments/
+
+# LLM generated reward files
+ray_tmp/llm_reward.py
