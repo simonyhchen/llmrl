@@ -89,13 +89,12 @@ class OllamaClient(LLMClient):
 
         self.host = host or config.OLLAMA_HOST
         self.model = model or config.OLLAMA_MODEL
-        self._ollama = ollama
+        self._client = ollama.Client(host=self.host)
 
     def generate_response(self, prompt: str) -> str:
-        response = self._ollama.chat(
+        response = self._client.chat(
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
-            host=self.host,
         )
         return response["message"]["content"].strip()
 

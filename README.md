@@ -1,3 +1,95 @@
+Project: LLMRL - LLM-Enhanced Reinforcement Learning for Circuit Design
+
+**目標**: 研究 LLM 是否可以通過生成自適應的 reward function，幫助 RL 更有效地優化電路設計（應用於 SPICE simulation）。
+
+## 快速開始 (Quick Start)
+
+### 環境設置
+
+#### 1. 主訓練環境 (Python 3.11 + Ray RLlib)
+```bash
+# 建立 conda 環境
+conda create -n llmrl311 python=3.11 -y
+conda activate llmrl311
+
+# 安裝依賴
+pip install ray[rllib]>=2.9 torch==2.1.1 gymnasium==1.2.2 numpy matplotlib pandas
+
+# （如果使用 OpenAI/Claude API）
+pip install openai anthropic
+
+# 驗證 Ray 安裝
+python -c "import ray; print(f'Ray {ray.__version__}')"
+```
+
+#### 2. Ollama + 本地 LLM 設置（推薦用於開發）
+
+**a) 安裝 Ollama**
+- **Windows**: 下載 [Ollama Desktop App](https://ollama.com/download)
+- **Linux/Mac**: `curl -fsSL https://ollama.com/install.sh | sh`
+
+**b) 下載輕量模型（推薦）**
+```bash
+ollama pull qwen2.5-coder:7b   # ~4.7GB，適合 8GB VRAM 的 GPU
+# 或
+ollama pull mistral:7b          # ~4.1GB，另一個快速選項
+```
+
+**c) 啟動 Ollama server**
+```bash
+# Windows: Ollama Desktop App 會自動啟動
+# Linux: 
+ollama serve
+
+# 驗證連線
+curl http://localhost:11434/api/tags
+```
+
+**d) 配置 LLM settings**
+```bash
+# 複製範本（如果尚未存在）
+cp src/llmrl/llm_settings.example.json src/llmrl/llm_settings.json
+
+# 編輯 src/llmrl/llm_settings.json，確認：
+# - "provider": "ollama"
+# - "ollama_host": "http://localhost:11434"（本機）或 Windows IP（WSL）
+# - "ollama_model": "qwen2.5-coder:7b"
+```
+
+**e) 測試 LLM 連線**
+```bash
+cd /path/to/llmrl
+source .venv/bin/activate  # 如果有 venv
+python src/llmrl/check_llm_connection.py
+```
+
+### 運行 LLM 增強的 RL 訓練
+
+```bash
+# 啟動 Python 3.11 環境
+conda activate llmrl311
+
+# 單次訓練（5 iterations，用 LLM 生成 reward）
+python src/llmrl/train_with_llm.py \
+  --experiment_name my_experiment \
+  --max_iters 5 \
+  --num_workers 2 \
+  --reward_description "獎勵所有規格滿足，懲罰規格偏離"
+
+# 自動比較 Baseline vs LLM（20 iterations）
+LLMRL_PYTHON=$(which python) python src/llmrl/compare.py --max_iters 20
+```
+
+### 輸出位置
+
+- **RL 指標**: `experiments/{experiment_name}/metrics.jsonl`
+- **比較報告**: `comparison_results/{timestamp}/comparison_report.json` 與圖表
+- **生成的 Reward Code**: `ray_tmp/llm_reward.py`
+
+---
+
+## 詳細設置
+
 Project : LLMRL
 想要研究LLM是否可以將RL控制得更好,應用在spice simulation
 
@@ -142,3 +234,49 @@ Project : LLMRL
 - [ ] 創建`train_with_llm.py`（修改訓練腳本，使用新環境）
 - [ ] 測試小規模整合（生成reward並運行訓練）
 - [ ] 更新README.md文檔並commit所有變更
+
+---
+
+## 項目狀態 (April 14, 2026)
+
+### ✅ 已完成
+- **Python 3.11 遷移**: 全套流程從舊版 Python → Python 3.11.1（Ray RLlib 2.54.1, gymnasium 1.2.2）
+- **Ollama 多模型支持**: 實裝可切換的 LLM provider（Ollama, OpenAI, Claude, HuggingFace）
+- **RewardGenerator**: LLM 根據自然語言自動生成 reward function
+- **自動化比較管道**: `compare.py` 自動跑 baseline vs LLM 訓練並產生對比圖表
+- **連線測試工具**: `check_llm_connection.py` 驗證 LLM 可用性
+
+### ✅ 已驗證的結果
+- **20 iterations 比較運行**（當前最佳結果）:
+  - Baseline final reward: **-23.6**
+  - LLM-Enhanced final reward: **-115.5**（更激進的懲罰策略）
+  - 兩者改善幅度相近，LLM 學習波動較大但持續改善
+- **Ollama qwen2.5-coder:7b** 推理時間 ~1 秒/prompt（GPU 加速）
+
+### 🔧 已知問題與改進空間
+1. **Reward Scale**: LLM 選擇的懲罰策略（如二次方損失）會改變 reward 尺度，難以直接比較
+   - 建議: 在 prompt 加入更多結構化指引，要求線性加總懲罰
+2. **Learning Stability**: LLM reward 導致的梯度變化較大，收斂需要更多 iterations
+   - 建議: 嘗試 50-100 iterations 看收斂行為
+3. **模型選擇**: qwen3-coder:30b 太大（超過 8GB VRAM），實際使用 qwen2.5-coder:7b
+   - 備選: mistral:7b
+
+### 📋 交接要點
+
+#### 對 @合作夥伴
+1. **環境配置只需 5 分鐘**: 按照上方「快速開始」節點的步驟即可
+2. **Ollama 對新手友善**: 無需 API key，支持本地 GPU 加速，推理費用為 0
+3. **修改 reward prompt 很簡單**: 在 `src/llmrl/reward_generator.py` 的 `_SYSTEM_PROMPT` 修改要求即可
+4. **主要代碼位置**:
+   - `src/llmrl/train_with_llm.py`: 主訓練邏輯（新增 LLM reward 參數化）
+   - `src/llmrl/reward_generator.py`: LLM 生成 reward 的核心
+   - `src/llmrl/compare.py`: 自動化比較工具
+   - `src/llmrl/llm_client.py`: 多 provider LLM 客戶端
+
+#### 建議的後續研究方向
+- **Prompt 工程**: 優化 `reward_description` 和系統 prompt，測試不同懲罰策略
+- **超參數調優**: batch size, learning rate 在 LLM reward 下的最優配置
+- **多目標 reward**: LLM 同時生成多個 sub-reward（功耗、面積、性能）
+- **遷移學習**: 用訓練好的 agent 初始化新的電路設計任務
+
+---

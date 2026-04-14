@@ -104,8 +104,14 @@ def compute_summary(rows, label):
     }
 
 
+_TRAIN_PYTHON = os.environ.get(
+    "LLMRL_PYTHON",
+    os.path.join(os.path.dirname(sys.executable), "python")
+)
+
+
 def run_training(script_args, label):
-    cmd = [sys.executable] + script_args
+    cmd = [_TRAIN_PYTHON] + script_args
     print("\n" + "=" * 60)
     print(f"[compare] Starting: {label}")
     print(f"[compare] Command: {' '.join(cmd)}")

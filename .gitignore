@@ -28,3 +28,6 @@ experiments/
 
 # LLM generated reward files
 ray_tmp/llm_reward.py
+
+# Local LLM settings with API keys (each user should have their own)
+# llm_settings.json  # UNCOMMENT to ignore if using real API keys

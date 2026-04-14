@@ -37,14 +37,19 @@ Arguments:
 - specs_id  : list of spec names (e.g. ["gain_min", "ibias_max", "pm_min", "ugbw_min"])
 
 Return value:
-- A float reward. Return 10.0 if ALL specs are satisfied (done condition).
-  Otherwise return a negative float (the more unsatisfied, the more negative).
+- A float reward. The function MUST end with:
+    return total_reward if total_reward < -0.02 else 10.0
+  where total_reward is a NEGATIVE float (sum of negative penalties).
+  Use ONLY negative additive penalties (NOT abs values) so the reward scale
+  matches the baseline (-0.02 to -31 range). Return 10.0 only when ALL specs met.
 
-Rules:
-1. Do NOT import anything. All needed values are passed as arguments.
-2. Use only basic Python and numpy-compatible operations on arrays.
-3. The function name MUST be "reward".
-4. Output ONLY the Python function code, no explanation, no markdown fences.
+CRITICAL RULES:
+1. The function MUST end with a `return` statement returning a float.
+2. Do NOT import anything. All needed values are passed as arguments.
+3. Use only basic Python and numpy-compatible operations on arrays.
+4. The function name MUST be "reward".
+5. Output ONLY the Python function code, no explanation, no markdown fences.
+6. NEVER omit the return statement - a function without return is invalid.
 
 Background - original AutoCkt reward (for reference):
     def reward(spec, goal_spec, specs_id):
@@ -118,11 +123,13 @@ class RewardGenerator:
 
             if validate_generated_code(code):
                 # 確認函數簽名正確
-                if "def reward(" in code:
+                if "def reward(" in code and "return " in code:
                     print("[RewardGenerator] Successfully generated valid reward function.")
                     return code
-                else:
+                elif "def reward(" not in code:
                     print("[RewardGenerator] Warning: generated code missing 'def reward('. Using default.")
+                else:
+                    print("[RewardGenerator] Warning: generated code missing 'return' statement. Using default.")
             else:
                 print("[RewardGenerator] Warning: generated code has syntax errors. Using default.")
 
