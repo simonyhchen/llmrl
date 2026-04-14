@@ -1,9 +1,10 @@
 # 項目交接清單 (Handoff Checklist)
 
 ## 📦 當前版本信息
-- **Latest Commit**: `340f1e5` - feat: integrate Ollama + LLM reward generation
+- **Latest Commit**: `d1c3e1f` - docs: add git repo URL and SSH setup to handoff guide
 - **Date**: April 14, 2026
 - **State**: LLM reward generation 可正常運作，已驗證 20 iterations 訓練
+- **Dev Machine**: WSL2 (Linux) + Windows 11, i7-14700HX, 16GB RAM, RTX 5070 Laptop 8GB VRAM
 
 ---
 
@@ -12,10 +13,13 @@
 ### Step 0: 取得代碼
 ```bash
 # 首次 clone（選 SSH 或 HTTPS 擇一）
-git clone git@github.com:simonyhchen/llmrl.git      # SSH （需要設 SSH key）
+git clone git@github.com:simonyhchen/llmrl.git      # SSH（需要設 SSH key）
 git clone https://github.com/simonyhchen/llmrl.git  # HTTPS
 
-cd llmrl
+# clone 到與 dev machine 相同位置
+mkdir -p ~/project && cd ~/project
+git clone git@github.com:simonyhchen/llmrl.git
+cd llmrl   # 完整路徑: ~/project/llmrl
 ```
 
 **設置 SSH key（如果還沒設過）**:
@@ -25,53 +29,110 @@ ssh-keygen -t ed25519 -C "your.email@example.com"
 
 # 將公鑰加到 GitHub: Settings → SSH and GPG keys → New SSH key
 cat ~/.ssh/id_ed25519.pub  # 複製這個內容貼到 GitHub
+
+# 測試連線
+ssh -T git@github.com  # 看到 "Hi simonyhchen!" 代表成功
 ```
 
 ### Step 1: 拉下最新代碼（已有 repo 者）
 ```bash
-cd llmrl
+cd ~/project/llmrl
 git pull origin master
 ```
 
-### Step 2: 安裝環境（如果尚未）
+### Step 2: 安裝 Miniconda（如果尚未安裝）
 ```bash
-# Python 3.11 訓練環境
+# 安裝 Miniconda3 到 ~/lib/miniconda3（與 dev machine 一致）
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+bash Miniconda3-latest-Linux-x86_64.sh -b -p ~/lib/miniconda3
+echo 'export PATH="$HOME/lib/miniconda3/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+### Step 3: 安裝 Python 3.11 訓練環境
+```bash
+# 建立 conda 環境（名稱與 dev machine 完全一致）
 conda create -n llmrl311 python=3.11 -y
 conda activate llmrl311
+
+# 安裝訓練依賴
 pip install ray[rllib]>=2.9 torch==2.1.1 gymnasium numpy matplotlib pandas
 
-# Ollama（本地 LLM，無需 API key）
-# Windows: https://ollama.com/download
-# Linux: curl -fsSL https://ollama.com/install.sh | sh
+# 驗證
+python -c "import ray; import gymnasium; print('OK')"
+# 預期: OK
+```
 
-# 下載模型
+### Step 4: 安裝 Ollama 並下載模型
+```bash
+# Linux 安裝
+curl -fsSL https://ollama.com/install.sh | sh
+
+# 下載輕量模型（~4.7GB，適合 8GB VRAM）
 ollama pull qwen2.5-coder:7b
+
+# 啟動 server（如果沒有自動啟動）
+ollama serve   # 另開一個 terminal 執行
+
+# 確認 server 正常
+curl http://localhost:11434/api/tags
 ```
 
-### Step 3: 設置 LLM 配置
+### Step 5: 設置 LLM 配置
 ```bash
+cd ~/project/llmrl
 cp src/llmrl/llm_settings.example.json src/llmrl/llm_settings.json
-# 編輯 llm_settings.json，確認:
-# - provider: "ollama"
-# - ollama_host: "http://localhost:11434"
-# - ollama_model: "qwen2.5-coder:7b"
 ```
 
-### Step 4: 驗證連線
+編輯 `src/llmrl/llm_settings.json`，確認內容如下（本機 Linux 用 localhost）：
+```json
+{
+  "provider": "ollama",
+  "ollama_host": "http://localhost:11434",
+  "ollama_model": "qwen2.5-coder:7b",
+  "openai_api_key": "",
+  "openai_model": "gpt-4o-mini",
+  "claude_api_key": "",
+  "claude_model": "claude-3-5-sonnet-20241022",
+  "hf_api_key": "",
+  "hf_model": "mistralai/Mistral-7B-Instruct-v0.1"
+}
+```
+
+> **如果你跑 WSL2（Windows 上的 Linux）且 Ollama 裝在 Windows**:
+> 需要把 `ollama_host` 改成 Windows 主機 IP：
+> ```bash
+> # 找出 Windows 主機 IP
+> ip route show default | awk '{print $3}'
+> # 把結果填入 ollama_host，例如: "http://172.30.224.1:11434"
+> ```
+> 並在 Windows 設環境變數 `OLLAMA_HOST=0.0.0.0` 後重啟 Ollama Desktop App。
+
+### Step 6: 驗證 LLM 連線
 ```bash
+cd ~/project/llmrl
+conda activate llmrl311
 python src/llmrl/check_llm_connection.py
 # 預期輸出: [check] response: LLM connection OK
 ```
 
-### Step 5: 跑一個測試訓練
+### Step 7: 跑測試訓練
 ```bash
 conda activate llmrl311
+cd ~/project/llmrl
+
 # LLM reward 自動生成 + 訓練（5 iterations, ~3 分鐘）
-python src/llmrl/train_with_llm.py --max_iters 5 --num_workers 2
+LLMRL_PYTHON=/home/$(whoami)/lib/miniconda3/envs/llmrl311/bin/python \
+  /home/$(whoami)/lib/miniconda3/envs/llmrl311/bin/python \
+  src/llmrl/train_with_llm.py --max_iters 5 --num_workers 2
 
 # 或自動比較 baseline vs LLM（20 iterations, ~20 分鐘）
-LLMRL_PYTHON=$(which python) python src/llmrl/compare.py --max_iters 20
+LLMRL_PYTHON=/home/$(whoami)/lib/miniconda3/envs/llmrl311/bin/python \
+  /home/$(whoami)/lib/miniconda3/envs/llmrl311/bin/python \
+  src/llmrl/compare.py --max_iters 20
 ```
+
+> **注意**: `LLMRL_PYTHON` 必須指向 `llmrl311` 的 Python，確保 `ray` 和 `gymnasium` 都在同一個環境。
 
 ---
 
@@ -126,8 +187,10 @@ client = get_llm_client("openai")
 # Baseline: 純 AutoCkt reward（不用 LLM）
 # LLM: 用自動生成的 reward function
 
-LLMRL_PYTHON=<path-to-python> python src/llmrl/compare.py --max_iters 20
-# 輸出: comparison_results/{timestamp}/comparison_chart.png
+LLMRL_PYTHON=~/lib/miniconda3/envs/llmrl311/bin/python \
+  ~/lib/miniconda3/envs/llmrl311/bin/python \
+  src/llmrl/compare.py --max_iters 20
+# 輸出: ~/project/llmrl/comparison_results/{timestamp}/comparison_chart.png
 ```
 
 ---
@@ -188,24 +251,32 @@ LLMRL_PYTHON=<path-to-python> python src/llmrl/compare.py --max_iters 20
 ### Q1: Ollama 連線失敗
 **A**: 確保 Ollama server 在運行
 ```bash
-# Windows: 打開 Ollama Desktop App
-# Linux: ollama serve
+# Linux: 另開 terminal 執行
+ollama serve
 
 # 測試連線
 curl http://localhost:11434/api/tags
+
+# 或用我們的檢測工具
+cd ~/project/llmrl && conda activate llmrl311
+python src/llmrl/check_llm_connection.py
 ```
 
 ### Q2: 訓練很慢
 **A**: 檢查
-1. **Ollama 推理**: `python src/llmrl/check_llm_connection.py`（應 < 2 s）
-2. **GPU 使用**: `nvidia-smi`（應顯示 GPU memory 被占用）
-3. **num_workers**: 減少 workers 避免 OOM（在 `train_with_llm.py` 調整 `--num_workers`）
+1. **Ollama 推理**: `cd ~/project/llmrl && python src/llmrl/check_llm_connection.py`（應 < 2 s）
+2. **GPU 使用**: `nvidia-smi`（應顯示 Ollama process 使用 GPU memory）
+3. **num_workers**: 減少 workers 避免 OOM
+   ```bash
+   # 在 train_with_llm.py 的 ppo_config 調整，或用參數
+   python src/llmrl/train_with_llm.py --max_iters 5 --num_workers 1
+   ```
 
 ### Q3: 生成的 reward 代碼看起來很奇怪
 **A**: LLM 可能理解不同。檢查：
-1. 查看 `ray_tmp/llm_reward.py` 的實際生成代碼
-2. 修改 prompt 在 `reward_generator.py` 加入更多結構化指引
-3. 嘗試另一個 Ollama 模型
+1. 查看 `~/project/llmrl/ray_tmp/llm_reward.py` 的實際生成代碼
+2. 修改 `~/project/llmrl/src/llmrl/reward_generator.py` 中的 `_SYSTEM_PROMPT`
+3. 測試另一個 Ollama 模型：`ollama pull mistral:7b`，再改 `llm_settings.json`
 
 ### Q4: 我想用 OpenAI/Claude 的 LLM
 **A**: 
@@ -224,11 +295,26 @@ curl http://localhost:11434/api/tags
 
 ---
 
+## 📝 開發環境規格參考（Dev Machine）
+
+| 項目 | 規格 |
+|------|------|
+| OS | Windows 11 + WSL2 (Ubuntu) |
+| CPU | Intel i7-14700HX (14 cores / 28 threads) |
+| RAM | 16GB |
+| GPU | NVIDIA RTX 5070 Laptop 8GB VRAM |
+| 磁碟 | 1TB |
+| Miniconda 位置 | `~/lib/miniconda3` |
+| 主環境 | `llmrl311`（Python 3.11.1）|
+| 項目位置 | `~/project/llmrl` |
+| Ollama 位置 | Linux 本機（`localhost:11434`）|
+| 模型 | `qwen2.5-coder:7b`（~4.7GB）|
+
 ## 📝 交接默認假設
 
-1. ✅ 你有 Python 3.11+ 環境（conda 或 venv）
-2. ✅ 你有 ~8GB+ 的 GPU memory（NVIDIA GPU）或願意跑 CPU
-3. ✅ 你能訪問本地 Ollama（如果跑 WSL，知道如何配置 host IP）
+1. ✅ 你有 Python 3.11+ 環境（推薦 `conda create -n llmrl311 python=3.11`）
+2. ✅ 你有 ~8GB+ VRAM 的 NVIDIA GPU（或接受跑 CPU，速度慢 5-10x）
+3. ✅ Ollama 裝在同一台機器上（本機 Linux 或 WSL2 + Windows Ollama）
 4. ✅ 你熟悉基本 RL 概念與 PyTorch
 
 ---
