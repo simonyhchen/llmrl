@@ -9,9 +9,27 @@
 
 ## 🚀 快速上手 (< 15 minutes)
 
-### Step 1: 拉下最新代碼
+### Step 0: 取得代碼
 ```bash
-cd /path/to/llmrl
+# 首次 clone（選 SSH 或 HTTPS 擇一）
+git clone git@github.com:simonyhchen/llmrl.git      # SSH （需要設 SSH key）
+git clone https://github.com/simonyhchen/llmrl.git  # HTTPS
+
+cd llmrl
+```
+
+**設置 SSH key（如果還沒設過）**:
+```bash
+# 產生 SSH key
+ssh-keygen -t ed25519 -C "your.email@example.com"
+
+# 將公鑰加到 GitHub: Settings → SSH and GPG keys → New SSH key
+cat ~/.ssh/id_ed25519.pub  # 複製這個內容貼到 GitHub
+```
+
+### Step 1: 拉下最新代碼（已有 repo 者）
+```bash
+cd llmrl
 git pull origin master
 ```
 
